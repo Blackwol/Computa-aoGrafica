@@ -1,0 +1,136 @@
+
+
+#include <fstream>
+#include <armadillo>
+
+using namespace std;
+using namespace arma;
+
+// Armadillo documentation is available at:
+// http://arma.sourceforge.net/docs.html
+
+
+bool intersect(const vec& origin, const vec& direction, const vec& center, double radius) {
+	vec oc = origin - center;
+	double a = dot(direction, direction);
+	double b = 2.0*dot(direction, oc);
+	double c = dot(oc, oc) - radius*radius;
+
+	double delta = b*b - 4.0*a*c;
+	if (delta < 0.0) {
+		return false;
+	}
+	double t1 = (b + sqrt(delta)) / (2.0*a);
+	double t2 = (b - sqrt(delta)) / (2.0*a);
+	return (t1 < t2) ? t1 : t2;
+}
+
+struct ray {
+	vec origin_;
+	vec center_;
+	vec origin_center_ = origin_ - center_;
+	vec direction_;
+};
+
+struct intersection {
+	vec normal;
+	vec p;
+	double t;
+};
+
+class Object {
+
+private:
+	vec kd_;
+	vec ke_;
+	double shininess_;
+
+public:
+	virtual vec normal(const vec&p) const = 0;
+	virtual bool intersect(const ray&r, intersection&da) const = 0;
+
+	//Gets
+
+	vec kd_() const {
+		return kd_;
+	}
+
+	vec ke_() const {
+		return ke_;
+	}
+
+	double shininess_() const {
+		return shininess_;
+	}
+};
+
+class Sphere : public Object {
+
+private:
+	vec center;
+	double radius;
+	
+public:
+	virtual bool intersect(const ray&r, intersection&da)const {
+		vec oc = r.origin_center_;
+		double a = dot(r.direction_, r.direction_);
+		double b = 20.0*dot(r.direction_, oc);
+		double c = dot(oc, oc);
+		double delta = b*b - 4 * a*c;
+		if (delta < 0.0){
+			return false;
+		}
+		double t1 = (-b + sqrt(delta)) / 2 * a;
+		double t2 = (-b - sqrt(delta)) / 2 * a;
+		da.t = t1 < t2 ? t1 : t2;
+		da.p = r.origin_ + r.direction_ + da.t;
+		da.normal = da.p - r.center_;
+		return true;
+	}
+};
+
+
+
+int main()
+{
+
+	vec c;
+	c << 0.0 << 0.0 << 10.0;
+
+	vec origin;
+	origin << 0.0 << 0.0 << 0.0;
+
+	vec luz;
+	luz << 3.0 << 20.0 << 5.0;
+
+	mat k;
+	k << 1000.0 << 0.0 << 400.0 << endr
+		<< 0.0 << -1000.0 << 300.0 << endr
+		<< 0.0 << 0.0 << 1.0;
+	mat invk = k.i();
+
+	ofstream output;
+	output.open("imagem.pgm");
+	output << "P3" << endl;
+	output << "800 600" << endl;
+	output << "255" << endl;
+
+	for (int linha = 0; linha < 600; linha++) {
+		for (int coluna = 0; coluna < 800; coluna++) {
+			vec r;
+			r << coluna << linha << 1.0;
+			r = invk * r;
+			r *= 5.0 / r(2);
+
+			if (intersect(origin, r, c, 1.2)) {
+				output << "255 0 0 ";
+			}
+			else {
+				output << "255 255 255 ";
+			}
+		}
+	}
+	output.close();
+	return 0;
+	
+}
